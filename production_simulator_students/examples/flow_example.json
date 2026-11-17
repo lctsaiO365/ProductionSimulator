@@ -1,0 +1,10 @@
+{
+  "stations": {
+    "ST01": {"inputs": []},
+    "ST02": {"inputs": []},
+    "ST03": {"inputs": ["ST01", "ST02"]},
+    "ST04": {"inputs": []},
+    "ST05": {"inputs": ["ST03", "ST04"]}
+  },
+  "output_station": "ST05"
+}

@@ -1,0 +1,6 @@
+station_id,duration_sec,status
+ST01,3.1,completed
+ST01,3.4,completed
+ST02,6.5,completed
+ST02,7.2,completed
+ST04,4.9,completed

@@ -1,0 +1,8 @@
+{
+  "product_ids": ["P001", "P002", "P003", "P004", "P005", "P006"],
+  "initial_ready_wip": {
+    "ST03": ["P003", "P004"],
+    "ST05": ["P001", "P002"]
+  },
+  "initial_edge_inventory": {}
+}
