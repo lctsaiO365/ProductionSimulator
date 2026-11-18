@@ -5,8 +5,8 @@
 ## 安裝與啟動
 
 **Windows**
-1. 安裝 Python（https://www.python.org/downloads/），
-   安裝時勾選「Add Python to PATH」。
+1. 安裝 Python（https://www.python.org/downloads/）
+   ，安裝時勾選「Add Python to PATH」。
 2. 解壓縮 ZIP 至可寫入的資料夾。
 3. 雙擊 `install_windows.bat` 安裝依賴（首次需要網路）。
 4. 雙擊 `start_windows.bat` 開啟網頁介面。一般會在 `http://localhost:8501`。
