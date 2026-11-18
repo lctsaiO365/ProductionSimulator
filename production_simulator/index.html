@@ -283,7 +283,7 @@
           </div>
         </div>
 
-        <button class="btn" style="margin-top: 8px;" onclick="runSimulation()">🚀 執行離散事件模擬 (Run Simulation)</button>
+        <button class="btn" style="margin-top: 8px;" onclick="runSimulation(false)">🚀 執行離散事件模擬 (Run Simulation)</button>
       </div>
     </div>
 
@@ -711,8 +711,8 @@ R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,c
       return { makespan, schedule };
     }
 
-    // 主執行流程
-    function runSimulation() {
+    // 主執行流程 (isSilent = true 表示首次載入靜默計算，不彈出 Toast 通知)
+    function runSimulation(isSilent = false) {
       try {
         const rawRows = parseCSV(currentRawCSV);
         if (rawRows.length === 0) throw new Error("無有效生產日誌數據，請檢查 CSV 格式。");
@@ -834,7 +834,9 @@ R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,c
 
         document.getElementById('resultsArea').style.display = 'block';
         latestSimulationResult = { mean, p50, p90, minVal, maxVal, firstResult, makespans };
-        showToast("離散事件模擬執行成功！", "success");
+        if (!isSilent) {
+          showToast("離散事件模擬執行成功！", "success");
+        }
       } catch (err) {
         showToast("模擬失敗：" + err.message, "error", 5000);
       }
@@ -868,8 +870,8 @@ R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,c
       });
     }
 
-    // 頁面載入後自動先跑一次模擬
-    window.onload = () => { runSimulation(); };
+    // 頁面初次載入時自動靜默運算呈現預設圖表 (isSilent = true，不彈出 Toast 提示)
+    window.onload = () => { runSimulation(true); };
   </script>
 </body>
 </html>
