@@ -1,15 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>通用生產離散事件模擬器</title>
+  <!-- 載入 Plotly.js 用於繪製甘特圖與直方圖 -->
+  <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+  <!-- 載入 JSZip 用於結果 ZIP 打包下載 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <style>
+    :root {
+      --primary: #1e40af;
+      --primary-hover: #1d4ed8;
+      --bg: #f8fafc;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+    }
+    .container { max-width: 1200px; margin: 0 auto; }
+    header {
+      background: var(--card);
+      padding: 24px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    h1 { font-size: 24px; font-weight: 700; color: var(--primary); margin-bottom: 8px; }
+    p.subtitle { color: var(--text-muted); font-size: 14px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 24px; }
+    @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: var(--card);
+      padding: 20px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+    .card h2 { font-size: 16px; font-weight: 600; margin-bottom: 12px; color: var(--text); display: flex; align-items: center; gap: 8px; }
+    label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+    input[type="file"], select, input[type="number"], input[type="text"] {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 14px;
+      background: #fff;
+      margin-bottom: 12px;
+    }
+    .file-status-text {
+      font-size: 12px;
+      color: #15803d;
+      font-weight: 500;
+      margin-top: -8px;
+      margin-bottom: 10px;
+      display: none;
+    }
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; }
+    .slider {
+      position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #cbd5e1;
+      transition: .3s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    input:checked + .slider { background-color: var(--primary); }
+    input:checked + .slider:before { transform: translateX(20px); }
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: background .2s;
+    }
+    .btn:hover { background: var(--primary-hover); }
+    .btn-secondary {
+      background: #e2e8f0;
+      color: #334155;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      width: auto;
+      margin-right: 8px;
+    }
+    .btn-secondary:hover { background: #cbd5e1; }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .metric-card {
+      background: var(--card);
+      padding: 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+    .metric-title { font-size: 12px; color: var(--text-muted); font-weight: 500; text-transform: uppercase; }
+    .metric-val { font-size: 28px; font-weight: 700; color: var(--primary); margin: 6px 0; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-high { background: #dcfce7; color: #166534; }
+    .badge-med { background: #fef3c7; color: #92400e; }
+    .badge-low { background: #fee2e2; color: #991b1b; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    th { background: #f1f5f9; color: #475569; font-weight: 600; }
+    .chart-container {
+      background: var(--card);
+      padding: 16px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 24px;
+    }
+    .sample-buttons { margin-top: 6px; margin-bottom: 14px; }
+
+    /* 自訂現代化 Toast 浮動通知 (完全無瀏覽器域名提示) */
+    .toast-container {
+      position: fixed;
+      top: 24px;
+      right: 24px;
+      z-index: 99999;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      min-width: 280px;
+      max-width: 440px;
+      background: #ffffff;
+      color: #1e293b;
+      padding: 14px 18px;
+      border-radius: 10px;
+      box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+      border-left: 5px solid #3b82f6;
+      font-size: 14px;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: toastIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      transition: all 0.3s ease;
+    }
+    .toast-success { border-left-color: #10b981; }
+    .toast-warning { border-left-color: #f59e0b; }
+    .toast-error { border-left-color: #ef4444; }
+    .toast-info { border-left-color: #3b82f6; }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-12px) scale(0.96); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .toast.hide {
+      opacity: 0;
+      transform: translateY(-12px) scale(0.96);
+    }
+  </style>
+</head>
+<body>
+  <!-- Toast 通知容器 -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <div class="container">
+    <header>
+      <h1>通用生產離散事件模擬器 (GitHub Pages 雲端版)</h1>
+      <p class="subtitle">適用於任意 DAG 工站配置。支援當日動態採集日誌、極少筆數 (5 筆/0 筆) 自適應守護與蒙地卡羅完工排程模擬。</p>
+    </header>
+
+    <!-- 守護模式開關 -->
+    <div class="toggle-container">
+      <label class="switch">
+        <input type="checkbox" id="guardToggle" checked />
+        <span class="slider"></span>
+      </label>
+      <div>
+        <strong style="color: #1e3a8a; font-size: 15px;">🛡️ 啟用動態當日資料守護模式（自動處理 5 筆少樣本與 0 筆工站）</strong>
+        <p style="font-size: 12px; color: #3b82f6; margin-top: 2px;">
+          當上傳的當日資料筆數極少或部分工站尚無資料時，自動啟用「統計數據增強」與「SOP 標稱工時保底」，避免模擬中斷。
+        </p>
+      </div>
+    </div>
+
+    <!-- 輸入區塊 -->
+    <div class="grid">
+      <div class="card">
+        <h2>📂 1. 資料來源設定</h2>
+        
+        <label>生產加工時間 CSV：</label>
+        <input type="file" id="csvFile" accept=".csv" />
+        <div class="file-status-text" id="csvStatus"></div>
+        <div class="sample-buttons">
+          <button class="btn btn-secondary" onclick="loadSampleCSV('full')">載入正常歷史範例 (充沛資料)</button>
+          <button class="btn btn-secondary" onclick="loadSampleCSV('sparse')">載入極端當日範例 (僅5筆且缺站)</button>
+        </div>
+
+        <label>製程網路 Flow JSON：</label>
+        <input type="file" id="flowFile" accept=".json" />
+        <div class="file-status-text" id="flowStatus"></div>
+
+        <label>情境設定 Scenario JSON (WIP)：</label>
+        <input type="file" id="scenarioFile" accept=".json" />
+        <div class="file-status-text" id="scenarioStatus"></div>
+      </div>
+
+      <div class="card">
+        <h2>⚙️ 2. 模擬參數設定</h2>
+        
+        <label>目標產品數量 (Target Quantity)：</label>
+        <input type="number" id="targetQty" min="1" max="1000" value="6" />
+
+        <label>加工時間取樣模型 (Model)：</label>
+        <select id="modelSelect">
+          <option value="bootstrap" selected>Bootstrap (有放回隨機抽樣 - 蒙地卡羅)</option>
+          <option value="mean">Mean (各站平均值基準)</option>
+          <option value="p25">P25 (第25百分位數 - 較快情境)</option>
+          <option value="p75">P75 (第75百分位數 - 較慢情境)</option>
+        </select>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div>
+            <label>模擬次數 (Runs)：</label>
+            <input type="number" id="simRuns" min="1" max="5000" value="1000" />
+          </div>
+          <div>
+            <label>隨機種子 (Seed)：</label>
+            <input type="number" id="simSeed" value="42" />
+          </div>
+        </div>
+
+        <button class="btn" style="margin-top: 8px;" onclick="runSimulation()">🚀 執行離散事件模擬 (Run Simulation)</button>
+      </div>
+    </div>
+
+    <!-- 數據品質診斷區 -->
+    <div class="card" id="diagnosticCard" style="display: none; margin-bottom: 24px;">
+      <h2>📊 當日各工站數據品質與處理策略診斷</h2>
+      <div style="overflow-x: auto;">
+        <table id="diagnosticTable">
+          <thead>
+            <tr>
+              <th>工站 (Station)</th>
+              <th>今日採集筆數</th>
+              <th>最終母體筆數</th>
+              <th>處理策略</th>
+              <th>預估平均工時 (秒)</th>
+              <th>估計標準差 (秒)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- 模擬結果區 -->
+    <div id="resultsArea" style="display: none;">
+      <h2 style="font-size: 18px; margin-bottom: 16px; color: var(--primary);">📈 模擬結果預測 (1000 次蒙地卡羅模擬)</h2>
+      
+      <div class="metrics-grid">
+        <div class="metric-card">
+          <div class="metric-title">平均總完工時間 (Mean)</div>
+          <div class="metric-val" id="mMean">--</div>
+          <span style="font-size: 12px; color: var(--text-muted);">長期運行期望值</span>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">中位數完工時間 (P50)</div>
+          <div class="metric-val" id="mP50" style="color: #0284c7;">--</div>
+          <span style="font-size: 12px; color: var(--text-muted);">典型正常情境</span>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">90百分位完工時間 (P90)</div>
+          <div class="metric-val" id="mP90" style="color: #d97706;">--</div>
+          <span style="font-size: 12px; color: #b45309; font-weight: 600;">★ 生管承諾交期推薦</span>
+        </div>
+        <div class="metric-card">
+          <div class="metric-title">完工時間範圍 [Min ~ Max]</div>
+          <div class="metric-val" id="mRange" style="font-size: 20px; color: #475569; margin: 12px 0;">--</div>
+          <span style="font-size: 12px; color: var(--text-muted);">極端情境範圍</span>
+        </div>
+      </div>
+
+      <!-- 甘特圖 -->
+      <div class="chart-container">
+        <h3 style="font-size: 15px; margin-bottom: 12px;">單次示範排程甘特圖 (Gantt Chart)</h3>
+        <div id="ganttChart" style="height: 380px;"></div>
+      </div>
+
+      <!-- 直方圖 -->
+      <div class="chart-container" id="histContainer">
+        <h3 style="font-size: 15px; margin-bottom: 12px;">總完工時間機率分佈 (Makespan Distribution)</h3>
+        <div id="histChart" style="height: 320px;"></div>
+      </div>
+
+      <!-- 各站稼動率與排程表 -->
+      <div class="grid">
+        <div class="card">
+          <h2>⚙️ 各工站設備稼動率 (Utilization)</h2>
+          <table id="stationSummaryTable">
+            <thead>
+              <tr><th>工站</th><th>加工總件數</th><th>累計忙碌秒數</th><th>設備稼動率</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>📋 單次排程工單明細 (前 10 筆)</h2>
+          <table id="scheduleTable">
+            <thead>
+              <tr><th>工站</th><th>產品</th><th>開工秒數</th><th>完工秒數</th><th>耗時</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <button class="btn" style="background: #059669; margin-top: 16px;" onclick="downloadResultsZip()">💾 下載模擬結果 ZIP (含排程明細與統計)</button>
+    </div>
+  </div>
+
+  <script>
+    // 自訂優雅的 Toast 通知函數 (徹底消除瀏覽器原生的網域名稱提示)
+    function showToast(message, type = 'success', duration = 3200) {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-${type}`;
+      let icon = '✅';
+      if (type === 'error') icon = '❌';
+      else if (type === 'warning') icon = '⚠️';
+      else if (type === 'info') icon = 'ℹ️';
+
+      toast.innerHTML = `<span style="font-size: 18px;">${icon}</span> <span>${message}</span>`;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('hide');
+        setTimeout(() => toast.remove(), 320);
+      }, duration);
+    }
+
+    // 預設內建資料 (與 Python 版完全一致)
+    const DEFAULT_FLOW = {
+      stations: {
+        ST01: { inputs: [] },
+        ST02: { inputs: [] },
+        ST03: { inputs: ["ST01", "ST02"] },
+        ST04: { inputs: [] },
+        ST05: { inputs: ["ST03", "ST04"] }
+      },
+      output_station: "ST05"
+    };
+
+    const DEFAULT_SCENARIO = {
+      product_ids: ["P001", "P002", "P003", "P004", "P005", "P006"],
+      initial_ready_wip: { ST03: ["P003", "P004"], ST05: ["P001", "P002"] },
+      initial_edge_inventory: {}
+    };
+
+    const DEFAULT_SOP_TIMES = {
+      ST01: 3.2, ST02: 6.8, ST03: 10.5, ST04: 5.0, ST05: 8.5
+    };
+
+    // 內建模擬真實歷史資料
+    let currentRawCSV = `round_id,station_id,product,duration_sec,status
+R01,ST01,P001,3.02,completed\nR01,ST01,P002,3.41,completed\nR01,ST01,P003,2.71,completed\nR01,ST01,P004,2.65,completed
+R01,ST02,P001,6.47,completed\nR01,ST02,P002,6.48,completed\nR01,ST02,P003,7.30,completed\nR01,ST02,P004,6.24,completed
+R01,ST03,P001,9.81,completed\nR01,ST03,P002,9.85,completed\nR01,ST03,P003,10.44,completed\nR01,ST03,P004,12.26,completed
+R01,ST04,P001,4.71,completed\nR01,ST04,P002,5.01,completed\nR01,ST04,P003,5.21,completed\nR01,ST04,P004,5.27,completed
+R01,ST05,P001,9.85,completed\nR01,ST05,P002,7.70,completed\nR01,ST05,P003,9.19,completed\nR01,ST05,P004,7.79,completed
+R02,ST01,P001,2.89,completed\nR02,ST01,P002,3.33,completed\nR02,ST01,P003,2.66,completed\nR02,ST01,P004,3.41,completed
+R02,ST02,P001,6.07,completed\nR02,ST02,P002,7.60,completed\nR02,ST02,P003,7.52,completed\nR02,ST02,P004,6.48,completed
+R02,ST03,P001,12.37,completed\nR02,ST03,P002,9.91,completed\nR02,ST03,P003,12.35,completed\nR02,ST03,P004,10.46,completed
+R02,ST04,P001,5.38,completed\nR02,ST04,P002,4.28,completed\nR02,ST04,P003,4.96,completed\nR02,ST04,P004,5.34,completed
+R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,completed\nR02,ST05,P004,8.14,completed`;
+
+    let currentFlow = JSON.parse(JSON.stringify(DEFAULT_FLOW));
+    let currentScenario = JSON.parse(JSON.stringify(DEFAULT_SCENARIO));
+    let latestSimulationResult = null;
+
+    // 隨機數產生器 (Seeded LCG)
+    class SeededRNG {
+      constructor(seed = 42) { this.m = 0x80000000; this.a = 1103515245; this.c = 12345; this.state = seed ? seed : Math.floor(Math.random() * (this.m - 1)); }
+      nextFloat() { this.state = (this.a * this.state + this.c) % this.m; return this.state / (this.m - 1); }
+      normal(mean, std) {
+        let u1 = this.nextFloat(), u2 = this.nextFloat();
+        while (u1 === 0) u1 = this.nextFloat();
+        let z0 = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+        return mean + z0 * std;
+      }
+      choice(arr) { return arr[Math.floor(this.nextFloat() * arr.length)]; }
+    }
+
+    // 快速載入示範 CSV
+    function loadSampleCSV(type) {
+      if (type === 'sparse') {
+        currentRawCSV = `station_id,duration_sec,status\nST01,3.1,completed\nST01,3.4,completed\nST02,6.5,completed\nST02,7.2,completed\nST04,4.9,completed`;
+        const st = document.getElementById('csvStatus');
+        st.style.display = 'block';
+        st.innerText = '✅ 已載入「極端當日範例」(僅5筆，缺ST03/ST05)';
+        showToast("已載入極端當日範例 (僅5筆，且缺ST03/ST05)！", "info");
+      } else {
+        location.reload();
+      }
+    }
+
+    // 檔案上傳事件 (使用 Toast 取代原生 alert)
+    document.getElementById('csvFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          currentRawCSV = event.target.result;
+          const st = document.getElementById('csvStatus');
+          st.style.display = 'block';
+          st.innerText = `✅ 已成功載入檔案：${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+          showToast(`成功載入自訂 CSV：${file.name}`, "success");
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    document.getElementById('flowFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            currentFlow = JSON.parse(event.target.result);
+            const st = document.getElementById('flowStatus');
+            st.style.display = 'block';
+            st.innerText = `✅ 已成功載入製程：${file.name}`;
+            showToast(`成功載入 Flow JSON：${file.name}`, "success");
+          } catch (err) {
+            showToast("Flow JSON 格式解析失敗：" + err.message, "error");
+          }
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    document.getElementById('scenarioFile').addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            currentScenario = JSON.parse(event.target.result);
+            const st = document.getElementById('scenarioStatus');
+            st.style.display = 'block';
+            st.innerText = `✅ 已成功載入情境：${file.name}`;
+            showToast(`成功載入 Scenario JSON：${file.name}`, "success");
+          } catch (err) {
+            showToast("Scenario JSON 格式解析失敗：" + err.message, "error");
+          }
+        };
+        reader.readAsText(file);
+      }
+    });
+
+    // 解析 CSV
+    function parseCSV(text) {
+      const lines = text.trim().split('\n');
+      if (lines.length < 2) return [];
+      const headers = lines[0].split(',').map(h => h.trim());
+      const stIdx = headers.indexOf('station_id');
+      const durIdx = headers.indexOf('duration_sec');
+      const statusIdx = headers.indexOf('status');
+
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        const parts = lines[i].split(',').map(p => p.trim());
+        if (parts.length <= Math.max(stIdx, durIdx)) continue;
+        const dur = parseFloat(parts[durIdx]);
+        const status = statusIdx >= 0 ? parts[statusIdx].toLowerCase() : 'completed';
+        const validStatus = ['completed', 'complete', 'success', 'finished', 'done', 'ok', '完成'];
+        if (validStatus.includes(status) && !isNaN(dur) && dur > 0) {
+          rows.push({ station_id: parts[stIdx], duration_sec: dur });
+        }
+      }
+      return rows;
+    }
+
+    // 資料守護與適應層 (Data Guard)
+    function processDataGuard(rawRows, stations, isGuardEnabled, seed = 42) {
+      const stationMap = {};
+      stations.forEach(s => stationMap[s] = []);
+      rawRows.forEach(r => {
+        if (stationMap[r.station_id]) stationMap[r.station_id].push(r.duration_sec);
+      });
+
+      const rng = new SeededRNG(seed);
+      const diagnostics = [];
+      const finalHistory = {};
+
+      for (const s of stations) {
+        const vals = stationMap[s];
+        const nRaw = vals.length;
+
+        if (!isGuardEnabled) {
+          if (nRaw === 0) throw new Error(`工站 ${s} 沒有有效歷史加工時間（需 > 0）。提示：若這是當日少筆數資料，可開啟上方「啟用動態當日資料守護模式」以自動補齊。`);
+          finalHistory[s] = vals;
+          continue;
+        }
+
+        let mode, meanVal, stdVal, pool = [];
+        if (nRaw >= 15) {
+          mode = '<span class="badge badge-high">全當日真實數據 (High)</span>';
+          meanVal = vals.reduce((a, b) => a + b, 0) / nRaw;
+          const variance = vals.reduce((a, b) => a + Math.pow(b - meanVal, 2), 0) / nRaw;
+          stdVal = Math.sqrt(variance);
+          pool = [...vals];
+        } else if (nRaw > 0) {
+          mode = `<span class="badge badge-med">統計增強補齊 (Med, 今日${nRaw}筆)</span>`;
+          meanVal = vals.reduce((a, b) => a + b, 0) / nRaw;
+          const variance = vals.reduce((a, b) => a + Math.pow(b - meanVal, 2), 0) / nRaw;
+          stdVal = nRaw >= 3 && variance > 0 ? Math.sqrt(variance) : meanVal * 0.12;
+
+          pool = [...vals];
+          const needed = Math.max(0, 25 - nRaw);
+          for (let k = 0; k < needed; k++) {
+            let synth = rng.normal(meanVal, stdVal);
+            synth = Math.max(meanVal * 0.5, Math.min(meanVal * 1.8, synth));
+            pool.push(parseFloat(synth.toFixed(2)));
+          }
+        } else {
+          mode = '<span class="badge badge-low">SOP標稱保底 (Low, 今日0筆)</span>';
+          const sop = DEFAULT_SOP_TIMES[s] || 10.0;
+          meanVal = sop;
+          stdVal = sop * 0.12;
+          for (let k = 0; k < 25; k++) {
+            let synth = rng.normal(meanVal, stdVal);
+            synth = Math.max(meanVal * 0.6, Math.min(meanVal * 1.6, synth));
+            pool.push(parseFloat(synth.toFixed(2)));
+          }
+        }
+
+        finalHistory[s] = pool;
+        diagnostics.push({
+          station: s,
+          rawCount: nRaw,
+          finalCount: pool.length,
+          strategy: mode,
+          mean: meanVal.toFixed(2),
+          std: stdVal.toFixed(2)
+        });
+      }
+
+      return { finalHistory, diagnostics };
+    }
+
+    // 離散事件模擬核心 (DES Engine)
+    function simulateOnce(graph, outputStation, history, scenario, model, rng) {
+      const products = scenario.product_ids;
+      const ready = {};
+      Object.keys(graph).forEach(s => ready[s] = new Set(scenario.initial_ready_wip[s] || []));
+      const inventory = {};
+      Object.keys(graph).forEach(s => {
+        (graph[s].inputs || []).forEach(u => inventory[`${u}->${s}`] = new Set());
+      });
+
+      // 下游對照表
+      const downstream = {};
+      Object.keys(graph).forEach(s => downstream[s] = []);
+      Object.keys(graph).forEach(s => {
+        (graph[s].inputs || []).forEach(u => downstream[u].push(s));
+      });
+
+      // 任務判定
+      const needed = new Set();
+      function requireTask(s, p) {
+        const key = `${s}:${p}`;
+        if (needed.has(key)) return;
+        needed.add(key);
+        if (ready[s].has(p)) return;
+        (graph[s].inputs || []).forEach(u => requireTask(u, p));
+      }
+      products.forEach(p => requireTask(outputStation, p));
+
+      const busy = {};
+      Object.keys(graph).forEach(s => busy[s] = false);
+      const running = new Set();
+      const finished = new Set();
+      const schedule = [];
+      let events = []; // 優先佇列
+      let clock = 0.0;
+      let eventId = 0;
+
+      function sample(s) {
+        const vals = history[s];
+        if (model === 'mean') return vals.reduce((a,b)=>a+b,0) / vals.length;
+        if (model === 'bootstrap') return rng.choice(vals);
+        if (model === 'p25') {
+          const sorted = [...vals].sort((a,b)=>a-b);
+          return sorted[Math.floor(sorted.length * 0.25)];
+        }
+        if (model === 'p75') {
+          const sorted = [...vals].sort((a,b)=>a-b);
+          return sorted[Math.floor(sorted.length * 0.75)];
+        }
+        return rng.choice(vals);
+      }
+
+      function dispatch() {
+        let changed = true;
+        while (changed) {
+          changed = false;
+          for (const s of Object.keys(graph)) {
+            if (busy[s]) continue;
+            for (const p of products) {
+              const taskKey = `${s}:${p}`;
+              if (!needed.has(taskKey) || finished.has(taskKey) || running.has(taskKey)) continue;
+
+              const inputs = graph[s].inputs || [];
+              const isReady = ready[s].has(p);
+              const materialsReady = isReady || inputs.every(u => inventory[`${u}->${s}`].has(p));
+
+              if (!materialsReady) continue;
+
+              if (isReady) {
+                ready[s].delete(p);
+              } else {
+                inputs.forEach(u => inventory[`${u}->${s}`].delete(p));
+              }
+
+              const dur = sample(s);
+              busy[s] = true;
+              running.add(taskKey);
+              eventId++;
+              events.push({ finish: clock + dur, eventId, s, p, start: clock, duration: dur });
+              events.sort((a, b) => a.finish - b.finish || a.eventId - b.eventId);
+              changed = true;
+              break;
+            }
+          }
+        }
+      }
+
+      dispatch();
+      while (events.length > 0) {
+        clock = events[0].finish;
+        const batch = [];
+        while (events.length > 0 && Math.abs(events[0].finish - clock) < 1e-9) {
+          batch.push(events.shift());
+        }
+        for (const ev of batch) {
+          busy[ev.s] = false;
+          running.delete(`${ev.s}:${ev.p}`);
+          finished.add(`${ev.s}:${ev.p}`);
+          schedule.push(ev);
+          (downstream[ev.s] || []).forEach(d => inventory[`${ev.s}->${d}`].add(ev.p));
+        }
+        dispatch();
+      }
+
+      const makespan = Math.max(...schedule.filter(r => r.s === outputStation).map(r => r.finish));
+      return { makespan, schedule };
+    }
+
+    // 主執行流程
+    function runSimulation() {
+      try {
+        const rawRows = parseCSV(currentRawCSV);
+        if (rawRows.length === 0) throw new Error("無有效生產日誌數據，請檢查 CSV 格式。");
+
+        const stations = Object.keys(currentFlow.stations);
+        const isGuard = document.getElementById('guardToggle').checked;
+        const seed = parseInt(document.getElementById('simSeed').value) || 42;
+        const runs = parseInt(document.getElementById('simRuns').value) || 1000;
+        const model = document.getElementById('modelSelect').value;
+        const qty = parseInt(document.getElementById('targetQty').value) || 6;
+
+        // 更新目標產品清單
+        currentScenario.product_ids = Array.from({ length: qty }, (_, i) => `P${String(i + 1).padStart(3, '0')}`);
+
+        // 1. 守護與增強
+        const { finalHistory, diagnostics } = processDataGuard(rawRows, stations, isGuard, seed);
+
+        // 渲染診斷表
+        const diagTbody = document.querySelector('#diagnosticTable tbody');
+        diagTbody.innerHTML = '';
+        diagnostics.forEach(d => {
+          diagTbody.innerHTML += `<tr>
+            <td><strong>${d.station}</strong></td>
+            <td>${d.rawCount}</td>
+            <td>${d.finalCount}</td>
+            <td>${d.strategy}</td>
+            <td>${d.mean}</td>
+            <td>${d.std}</td>
+          </tr>`;
+        });
+        document.getElementById('diagnosticCard').style.display = isGuard ? 'block' : 'none';
+
+        // 2. 執行多次蒙地卡羅模擬
+        const masterRNG = new SeededRNG(seed);
+        const makespans = [];
+        let firstResult = null;
+
+        for (let i = 0; i < runs; i++) {
+          const runSeed = Math.floor(masterRNG.nextFloat() * 100000000);
+          const r = simulateOnce(currentFlow.stations, currentFlow.output_station, finalHistory, currentScenario, model, new SeededRNG(runSeed));
+          if (!firstResult) firstResult = r;
+          makespans.push(r.makespan);
+        }
+
+        makespans.sort((a, b) => a - b);
+        const mean = makespans.reduce((a, b) => a + b, 0) / runs;
+        const p50 = makespans[Math.floor(runs * 0.5)];
+        const p90 = makespans[Math.floor(runs * 0.9)];
+        const minVal = makespans[0];
+        const maxVal = makespans[makespans.length - 1];
+
+        // 3. 渲染指標
+        document.getElementById('mMean').innerText = `${mean.toFixed(2)}s`;
+        document.getElementById('mP50').innerText = `${p50.toFixed(2)}s`;
+        document.getElementById('mP90').innerText = `${p90.toFixed(2)}s`;
+        document.getElementById('mRange').innerText = `${minVal.toFixed(2)}s ~ ${maxVal.toFixed(2)}s`;
+
+        // 4. 繪製甘特圖
+        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#64748b'];
+        const ganttData = firstResult.schedule.map((item, idx) => ({
+          type: 'bar',
+          orientation: 'h',
+          y: [item.s],
+          x: [item.duration],
+          base: [item.start],
+          name: item.p,
+          text: `${item.p} (${item.duration.toFixed(1)}s)`,
+          textposition: 'inside',
+          hoverinfo: 'text',
+          hovertext: `工站: ${item.s}<br>產品: ${item.p}<br>開工: ${item.start.toFixed(2)}s<br>完工: ${item.finish.toFixed(2)}s`,
+          marker: { color: colors[parseInt(item.p.substring(1)) % colors.length] },
+          showlegend: idx < qty
+        }));
+
+        Plotly.newPlot('ganttChart', ganttData, {
+          barmode: 'stack',
+          xaxis: { title: '模擬時間 (秒)' },
+          yaxis: { title: '工站', autorange: 'reversed' },
+          margin: { l: 80, r: 20, t: 20, b: 40 }
+        }, { responsive: true });
+
+        // 5. 繪製直方圖 (僅在 Bootstrap 模式顯示)
+        if (model === 'bootstrap') {
+          document.getElementById('histContainer').style.display = 'block';
+          Plotly.newPlot('histChart', [{
+            x: makespans,
+            type: 'histogram',
+            nbinsx: 30,
+            marker: { color: '#3b82f6', line: { color: '#1e40af', width: 1 } }
+          }], {
+            xaxis: { title: '總完工時間 (秒)' },
+            yaxis: { title: '頻率 (次數)' },
+            margin: { l: 50, r: 20, t: 20, b: 40 }
+          }, { responsive: true });
+        } else {
+          document.getElementById('histContainer').style.display = 'none';
+        }
+
+        // 6. 渲染稼動率與明細
+        const schedTbody = document.querySelector('#scheduleTable tbody');
+        schedTbody.innerHTML = '';
+        firstResult.schedule.slice(0, 10).forEach(r => {
+          schedTbody.innerHTML += `<tr><td>${r.s}</td><td>${r.p}</td><td>${r.start.toFixed(2)}</td><td>${r.finish.toFixed(2)}</td><td>${r.duration.toFixed(2)}</td></tr>`;
+        });
+
+        const stTbody = document.querySelector('#stationSummaryTable tbody');
         stTbody.innerHTML = '';
         stations.forEach(s => {
           const sJobs = firstResult.schedule.filter(r => r.s === s);
           const busyTime = sJobs.reduce((a, b) => a + b.duration, 0);
           const util = (busyTime / firstResult.makespan) * 100;
           stTbody.innerHTML += `<tr>
-            <td><高對比>${s}</高對比></td>
+            <td><strong>${s}</strong></td>
             <td>${sJobs.length}</td>
             <td>${busyTime.toFixed(2)} 秒</td>
-            <td><高對比 style="color: ${util > 75 ? '#dc2626' : '#2563eb'}">${util.toFixed(1)}%</高對比></td>
+            <td><strong style="color: ${util > 75 ? '#dc2626' : '#2563eb'}">${util.toFixed(1)}%</strong></td>
           </tr>`;
         });
+
         document.getElementById('resultsArea').style.display = 'block';
         latestSimulationResult = { mean, p50, p90, minVal, maxVal, firstResult, makespans };
         showToast("離散事件模擬執行成功！", "success");
@@ -17,6 +839,7 @@
         showToast("模擬失敗：" + err.message, "error", 5000);
       }
     }
+
     // 下載結果 ZIP
     function downloadResultsZip() {
       if (!latestSimulationResult) return;
@@ -29,11 +852,13 @@
         max_sec: latestSimulationResult.maxVal
       };
       zip.file("statistics.json", JSON.stringify(stats, null, 2));
+
       let csv = "station_id,product,start_sec,finish_sec,duration_sec\n";
       latestSimulationResult.firstResult.schedule.forEach(r => {
         csv += `${r.s},${r.p},${r.start.toFixed(2)},${r.finish.toFixed(2)},${r.duration.toFixed(2)}\n`;
       });
       zip.file("example_schedule.csv", csv);
+
       zip.generateAsync({ type: "blob" }).then(content => {
         const a = document.createElement("a");
         a.href = URL.createObjectURL(content);
@@ -42,6 +867,7 @@
         showToast("結果 ZIP 已開始下載！", "success");
       });
     }
+
     // 頁面載入後自動先跑一次模擬
     window.onload = () => { runSimulation(); };
   </script>
