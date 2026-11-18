@@ -210,6 +210,48 @@
       opacity: 0;
       transform: translateY(-12px) scale(0.96);
     }
+
+    /* WIP 多選標籤按鈕美化 */
+    .wip-group {
+      background: #f8fafc;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+    .wip-group-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1e3a8a;
+      margin-bottom: 8px;
+    }
+    .wip-pill-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .wip-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e1;
+      background: #ffffff;
+      cursor: pointer;
+      font-size: 13px;
+      transition: all 0.2s;
+      user-select: none;
+    }
+    .wip-pill:hover { border-color: var(--primary); }
+    .wip-pill input { margin: 0; cursor: pointer; }
+    .wip-pill.checked {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      font-weight: 600;
+    }
+
   </style>
 </head>
 <body>
@@ -236,7 +278,7 @@
       </div>
     </div>
 
-    <!-- 輸入區塊 -->
+    <!-- 輸入與情境設定區塊 -->
     <div class="grid">
       <div class="card">
         <h2>📂 1. 資料來源設定</h2>
@@ -251,37 +293,63 @@
         <input type="file" id="flowFile" accept=".json" />
         <div class="file-status-text" id="flowStatus"></div>
 
-        <label>情境設定 Scenario JSON (WIP)：</label>
-        <input type="file" id="scenarioFile" accept=".json" />
-        <div class="file-status-text" id="scenarioStatus"></div>
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);">
+          <label>加工時間取樣模型 (Model)：</label>
+          <select id="modelSelect">
+            <option value="bootstrap" selected>Bootstrap (有放回隨機抽樣 - 蒙地卡羅)</option>
+            <option value="mean">Mean (各站平均值基準)</option>
+            <option value="p25">P25 (第25百分位數 - 較快情境)</option>
+            <option value="p75">P75 (第75百分位數 - 較慢情境)</option>
+          </select>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <label>模擬次數 (Runs)：</label>
+              <input type="number" id="simRuns" min="1" max="5000" value="1000" />
+            </div>
+            <div>
+              <label>隨機種子 (Seed)：</label>
+              <input type="number" id="simSeed" value="42" />
+            </div>
+          </div>
+        </div>
       </div>
 
+      <!-- 2. 下一輪情境設定 (完整還原舊版 WIP 勾選器) -->
       <div class="card">
-        <h2>⚙️ 2. 模擬參數設定</h2>
+        <h2>🎯 2. 下一輪情境與初始 WIP 設定</h2>
         
-        <label>目標產品數量 (Target Quantity)：</label>
-        <input type="number" id="targetQty" min="1" max="1000" value="6" />
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <label style="margin: 0;">目標產品數量 (Target Quantity)：</label>
+          <input type="number" id="targetQty" min="1" max="1000" value="6" style="width: 100px; margin: 0;" onchange="handleQtyChange()" />
+        </div>
+        <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px;">
+          產品依序編號為 P001、P002...；相同編號的上游物料齊全才能合流配對。
+        </p>
 
-        <label>加工時間取樣模型 (Model)：</label>
-        <select id="modelSelect">
-          <option value="bootstrap" selected>Bootstrap (有放回隨機抽樣 - 蒙地卡羅)</option>
-          <option value="mean">Mean (各站平均值基準)</option>
-          <option value="p25">P25 (第25百分位數 - 較快情境)</option>
-          <option value="p75">P75 (第75百分位數 - 較慢情境)</option>
-        </select>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-          <div>
-            <label>模擬次數 (Runs)：</label>
-            <input type="number" id="simRuns" min="1" max="5000" value="1000" />
-          </div>
-          <div>
-            <label>隨機種子 (Seed)：</label>
-            <input type="number" id="simSeed" value="42" />
+        <div>
+          <label><strong>初始 Ready WIP（已備妥完整物料套組）：</strong></label>
+          <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 10px;">
+            勾選哪些產品在該工站已預先備妥物料。這些產品的上游製作會被略過，大幅縮減完工時間：
+          </p>
+          <div id="wipStationContainer">
+            <!-- 這裡會依據 Flow 自動動態生成各工站的產品勾選方塊 -->
           </div>
         </div>
 
-        <button class="btn" style="margin-top: 8px;" onclick="runSimulation(false)">🚀 執行離散事件模擬 (Run Simulation)</button>
+        <details style="margin-top: 14px; font-size: 13px;">
+          <summary style="cursor: pointer; color: var(--primary); font-weight: 500;">進階：初始邊庫存與 JSON (選填)</summary>
+          <div style="margin-top: 8px;">
+            <label style="font-size: 12px;">initial_edge_inventory JSON：</label>
+            <textarea id="edgeInventoryJson" style="width: 100%; height: 50px; font-family: Consolas, monospace; font-size: 12px; padding: 6px; border: 1px solid var(--border); border-radius: 6px;" placeholder='{"ST01->ST03": ["P001"]}'></textarea>
+            
+            <label style="font-size: 12px; margin-top: 6px;">或匯入 Scenario JSON 檔案：</label>
+            <input type="file" id="scenarioFile" accept=".json" style="margin-bottom: 0;" />
+            <div class="file-status-text" id="scenarioStatus"></div>
+          </div>
+        </details>
+
+        <button class="btn" style="margin-top: 18px;" onclick="runSimulation(false)">🚀 執行離散事件模擬 (Run Simulation)</button>
       </div>
     </div>
 
@@ -430,6 +498,62 @@ R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,c
     let currentScenario = JSON.parse(JSON.stringify(DEFAULT_SCENARIO));
     let latestSimulationResult = null;
 
+    
+    // 動態渲染各工站的 Ready WIP 勾選框
+    function renderWipUI() {
+      const container = document.getElementById('wipStationContainer');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const qty = parseInt(document.getElementById('targetQty').value) || 6;
+      const products = Array.from({ length: qty }, (_, i) => `P${String(i + 1).padStart(3, '0')}`);
+      
+      const stations = currentFlow.stations || {};
+      let hasInputs = false;
+
+      for (const [s, spec] of Object.entries(stations)) {
+        const inputs = spec.inputs || [];
+        if (inputs.length > 0) {
+          hasInputs = true;
+          const group = document.createElement('div');
+          group.className = 'wip-group';
+          
+          const defaultPreChecked = currentScenario.initial_ready_wip[s] || [];
+
+          group.innerHTML = `
+            <div class="wip-group-title">工站 <strong>${s}</strong>（需要 ${inputs.join(', ')}）</div>
+            <div class="wip-pill-container" id="pills_${s}">
+              ${products.map(p => {
+                const isChecked = defaultPreChecked.includes(p);
+                return `
+                  <label class="wip-pill ${isChecked ? 'checked' : ''}">
+                    <input type="checkbox" name="ready_${s}" value="${p}" ${isChecked ? 'checked' : ''} onchange="this.parentElement.classList.toggle('checked', this.checked)" />
+                    <span>${p}</span>
+                  </label>
+                `;
+              }).join('')}
+            </div>
+          `;
+          container.appendChild(group);
+        }
+      }
+
+      if (!hasInputs) {
+        container.innerHTML = '<p style="font-size: 12px; color: var(--text-muted);">目前 Flow 中的工站皆無上游，無需配置 Ready WIP。</p>';
+      }
+
+      // 更新邊庫存預設值
+      const edgeBox = document.getElementById('edgeInventoryJson');
+      if (edgeBox && Object.keys(currentScenario.initial_edge_inventory || {}).length > 0) {
+        edgeBox.value = JSON.stringify(currentScenario.initial_edge_inventory, null, 2);
+      }
+    }
+
+    function handleQtyChange() {
+      // 保持目前勾選狀態，更新產品列表
+      renderWipUI();
+    }
+
     // 隨機數產生器 (Seeded LCG)
     class SeededRNG {
       constructor(seed = 42) { this.m = 0x80000000; this.a = 1103515245; this.c = 12345; this.state = seed ? seed : Math.floor(Math.random() * (this.m - 1)); }
@@ -478,7 +602,7 @@ R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,c
         const reader = new FileReader();
         reader.onload = (event) => {
           try {
-            currentFlow = JSON.parse(event.target.result);
+            currentFlow = JSON.parse(event.target.result); renderWipUI();
             const st = document.getElementById('flowStatus');
             st.style.display = 'block';
             st.innerText = `✅ 已成功載入製程：${file.name}`;
@@ -722,8 +846,31 @@ R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,c
         const model = document.getElementById('modelSelect').value;
         const qty = parseInt(document.getElementById('targetQty').value) || 6;
 
-        // 更新目標產品清單
+        // 1. 更新目標產品清單
         currentScenario.product_ids = Array.from({ length: qty }, (_, i) => `P${String(i + 1).padStart(3, '0')}`);
+
+        // 2. 從畫面上精準收集使用者勾選的 Ready WIP
+        const currentReadyWip = {};
+        for (const s of stations) {
+          const checked = Array.from(document.querySelectorAll(`input[name="ready_${s}"]:checked`)).map(cb => cb.value);
+          if (checked.length > 0) {
+            currentReadyWip[s] = checked;
+          }
+        }
+        currentScenario.initial_ready_wip = currentReadyWip;
+
+        // 3. 收集進階邊庫存
+        const edgeText = document.getElementById('edgeInventoryJson').value.trim();
+        if (edgeText) {
+          try {
+            currentScenario.initial_edge_inventory = JSON.parse(edgeText);
+          } catch(e) {
+            showToast("邊庫存 JSON 語法有誤：" + e.message, "error");
+            return;
+          }
+        } else {
+          currentScenario.initial_edge_inventory = {};
+        }
 
         // 1. 守護與增強
         const { finalHistory, diagnostics } = processDataGuard(rawRows, stations, isGuard, seed);
@@ -869,7 +1016,7 @@ R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,c
     }
 
     // 頁面初次載入時自動靜默運算呈現預設圖表 (isSilent = true，不彈出 Toast 提示)
-    window.onload = () => { runSimulation(true); };
+    window.onload = () => { renderWipUI(); runSimulation(true); };
   </script>
 </body>
 </html>
