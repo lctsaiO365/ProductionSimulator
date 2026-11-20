@@ -186,52 +186,22 @@ col_left, col_right = st.columns(2, gap="medium")
 # ------------------------------------------------------------------------------
 with col_left:
     st.markdown("### 📂 1. 資料來源設定")
-    
-    # 快捷範例資料切換選單 (使操作更流暢)
-    preset_choice = st.selectbox(
-        "快速載入測試範例（或選擇自行上傳）：",
-        options=[
-            "📁 內建標準歷史範例 (~100 筆充足資料)",
-            "⚠️ 極端當日少資料範例 (僅 5 筆，缺 ST03/ST05)",
-            "⚡ 極致冷啟動範例 (全線僅 2 筆數據)",
-            "📤 自行上傳 CSV / Flow JSON 檔案",
-        ],
-        index=0,
-    )
 
-    history_df: pd.DataFrame | None = None
-    flow_dict: dict | None = None
+    csv_upload = st.file_uploader("生產加工時間 CSV：", type=["csv"], key="csv_up")
+    flow_upload = st.file_uploader("製程網路 Flow JSON：", type=["json"], key="flow_up")
 
-    if preset_choice == "📤 自行上傳 CSV / Flow JSON 檔案":
-        csv_upload = st.file_uploader("生產加工時間 CSV：", type=["csv"], key="csv_up")
-        flow_upload = st.file_uploader("製程網路 Flow JSON：", type=["json"], key="flow_up")
-
-        if csv_upload is not None:
-            history_df = pd.read_csv(csv_upload)
-            st.caption(f"已讀取自訂 CSV，共 {len(history_df)} 筆。")
-        else:
-            history_df = pd.read_csv(ROOT / "examples" / "history_example.csv")
-            st.caption("提示：尚未選擇 CSV，已預設載入範例資料。")
-
-        if flow_upload is not None:
-            flow_dict = json.load(flow_upload)
-        else:
-            flow_dict = json.loads((ROOT / "examples" / "flow_example.json").read_text(encoding="utf-8"))
-    elif preset_choice == "📁 內建標準歷史範例 (~100 筆充足資料)":
+    # 若未上傳檔案，自動使用內建預設範例 (與網頁版 index.html 行為完全一致)
+    if csv_upload is not None:
+        history_df = pd.read_csv(csv_upload)
+    else:
         history_df = pd.read_csv(ROOT / "examples" / "history_example.csv")
+
+    if flow_upload is not None:
+        flow_dict = json.load(flow_upload)
+    else:
         flow_dict = json.loads((ROOT / "examples" / "flow_example.json").read_text(encoding="utf-8"))
-        st.caption("✅ 已載入標準歷史範例資料 (100筆)。")
-    elif preset_choice == "⚠️ 極端當日少資料範例 (僅 5 筆，缺 ST03/ST05)":
-        history_df = pd.read_csv(ROOT / "examples" / "today_5records_test.csv")
-        flow_dict = json.loads((ROOT / "examples" / "flow_example.json").read_text(encoding="utf-8"))
-        st.caption("⚠️ 已載入極少 5 筆範例（ST01: 2筆, ST02: 2筆, ST04: 1筆, ST03/ST05缺站）。")
-    else:  # ⚡ 極致冷啟動範例 (全線僅 2 筆數據)
-        csv_2_path = ROOT / "examples" / "today_2records_test.csv"
-        if not csv_2_path.exists():
-            csv_2_path.write_text("station_id,duration_sec,status\nST01,3.2,completed\nST02,6.9,completed\n", encoding="utf-8")
-        history_df = pd.read_csv(csv_2_path)
-        flow_dict = json.loads((ROOT / "examples" / "flow_example.json").read_text(encoding="utf-8"))
-        st.caption("⚡ 已載入極端冷啟動資料（全線僅 ST01: 1筆, ST02: 1筆）。")
+
+    st.markdown("---")
 
     st.markdown("---")
 
