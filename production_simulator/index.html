@@ -252,6 +252,117 @@
       font-weight: 600;
     }
 
+
+    /* 資料來源切換頁籤 */
+    .source-tabs {
+      display: flex;
+      background: #f1f5f9;
+      padding: 4px;
+      border-radius: 8px;
+      gap: 6px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+    }
+    .source-tab {
+      flex: 1;
+      padding: 8px 12px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 600;
+      border: none;
+      background: transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+    .source-tab.active {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      font-weight: 700;
+    }
+    .source-tab:hover:not(.active) {
+      color: var(--text);
+      background: rgba(255,255,255,0.5);
+    }
+
+    /* Supabase 雲端面板 */
+    .supabase-panel {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .status-online { background: #dcfce7; color: #166534; }
+    .status-online .status-dot { background: #16a34a; }
+    .status-offline { background: #f1f5f9; color: #475569; }
+    .status-offline .status-dot { background: #94a3b8; }
+    .status-syncing { background: #e0f2fe; color: #0369a1; }
+    .status-syncing .status-dot { background: #0284c7; animation: pulse 1.2s infinite; }
+    .status-error { background: #fee2e2; color: #991b1b; }
+    .status-error .status-dot { background: #dc2626; }
+
+    .live-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 500;
+      color: #1e3a8a;
+      margin: 2px;
+    }
+
+    /* 相關聯動系統快速入口 */
+    .quick-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed #cbd5e1;
+    }
+    .quick-link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      text-decoration: none;
+      color: #1e40af;
+      background: #ffffff;
+      border: 1px solid #bfdbfe;
+      transition: all 0.2s;
+    }
+    .quick-link-btn:hover {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      color: #1d4ed8;
+      box-shadow: 0 1px 2px rgba(59,130,246,0.1);
+    }
+
   </style>
 </head>
 <body>
@@ -282,16 +393,188 @@
     <div class="grid">
       <div class="card">
         <h2>📂 1. 資料來源設定</h2>
-        
-        <label>生產加工時間 CSV：</label>
-        <input type="file" id="csvFile" accept=".csv" />
-        <div class="file-status-text" id="csvStatus"></div>
-        <div class="sample-buttons">
+
+        <!-- 資料來源切換頁籤：雲端 Supabase / 地端檔案與範例 -->
+        <div class="source-tabs">
+          <button type="button" class="source-tab active" id="tabSupabase" onclick="switchSourceTab('supabase')">
+            ☁️ Supabase 雲端資料庫
+          </button>
+          <button type="button" class="source-tab" id="tabLocal" onclick="switchSourceTab('local')">
+            📁 本地檔案 / 內建範例
+          </button>
         </div>
 
-        <label>製程網路 Flow JSON：</label>
-        <input type="file" id="flowFile" accept=".json" />
-        <div class="file-status-text" id="flowStatus"></div>
+        <!-- 區塊 A：Supabase 雲端同步面板 -->
+        <div id="supabaseSection">
+          <div class="supabase-panel">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <span class="status-badge status-offline" id="dbStatusBadge">
+                <span class="status-dot"></span> 尚未同步
+              </span>
+              <span style="font-size: 11px; color: var(--text-muted);" id="lastSyncTimeText">未連線</span>
+            </div>
+
+            <!-- 組別與過濾設定 -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+              <div>
+                <label for="sbGroupSelect">選擇組別 (Group)：</label>
+                <div style="display: flex; gap: 6px;">
+                  <select id="sbGroupSelect" onchange="onGroupChange()" style="margin-bottom: 0;">
+                    <option value="G01" selected>G01 組</option>
+                    <option value="G01-T1">G01-T1 (測試1)</option>
+                    <option value="G01-T2">G01-T2 (測試2)</option>
+                    <option value="G02">G02 組</option>
+                    <option value="G02-T1">G02-T1 (測試1)</option>
+                    <option value="G03">G03 組</option>
+                    <option value="G04">G04 組</option>
+                    <option value="G05">G05 組</option>
+                    <option value="G06">G06 組</option>
+                    <option value="G07">G07 組</option>
+                    <option value="G08">G08 組</option>
+                    <option value="G09">G09 組</option>
+                    <option value="G10">G10 組</option>
+                    <option value="G11">G11 組</option>
+                    <option value="G12">G12 組</option>
+                    <option value="G12-T3">G12-T3 (測試3)</option>
+                    <option value="G25">G25 組</option>
+                    <option value="G25-T1">G25-T1 (測試1)</option>
+                    <option value="G25-T2">G25-T2 (測試2)</option>
+                    <option value="G25-T3">G25-T3 (測試3)</option>
+                    <option value="ALL">全產線 (ALL)</option>
+                  </select>
+                  <button type="button" class="btn-secondary" style="margin: 0; padding: 6px 10px;" onclick="fetchSupabaseGroups()" title="從雲端自動偵測所有現存組別清單">
+                    🔍 偵測
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label for="sbFilterSelect">數據過濾：</label>
+                <select id="sbFilterSelect" onchange="syncFromSupabase()" style="margin-bottom: 0;">
+                  <option value="ALL" selected>全部工單數據</option>
+                  <option value="OFFICIAL">僅正式工單 (排除 TEST-)</option>
+                  <option value="TEST">僅測試工單 (TEST-)</option>
+                  <option value="TEST1">僅第 1 輪測試 (TEST1-)</option>
+                  <option value="TEST2">僅第 2 輪測試 (TEST2-)</option>
+                  <option value="TEST3">僅第 3 輪測試 (TEST3-)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 同步內容核取方塊 -->
+            <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; font-size: 13px;">
+              <label style="display: inline-flex; align-items: center; gap: 5px; margin: 0; cursor: pointer;">
+                <input type="checkbox" id="syncEventsCb" checked />
+                <span>工時數據 (event)</span>
+              </label>
+              <label style="display: inline-flex; align-items: center; gap: 5px; margin: 0; cursor: pointer;">
+                <input type="checkbox" id="syncFlowCb" checked />
+                <span>製程網路 (station_flow)</span>
+              </label>
+              <label style="display: inline-flex; align-items: center; gap: 5px; margin: 0; cursor: pointer;">
+                <input type="checkbox" id="syncWipCb" checked />
+                <span>在製品庫存 (station_wip)</span>
+              </label>
+            </div>
+
+            <!-- 立即同步按鈕與自動輪詢開關 -->
+            <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+              <button type="button" class="btn" id="btnSyncDb" style="flex: 2; padding: 10px;" onclick="syncFromSupabase()">
+                🔄 立即從 Supabase 同步數據
+              </button>
+              <div style="flex: 1.2;">
+                <select id="autoSyncInterval" onchange="toggleAutoSync()" style="margin: 0; font-size: 13px; padding: 8px;">
+                  <option value="0" selected>自動同步: 關閉</option>
+                  <option value="5000">每 5 秒自動同步</option>
+                  <option value="10000">每 10 秒自動同步</option>
+                  <option value="30000">每 30 秒自動同步</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 雲端同步資訊摘要 -->
+            <div id="sbSummaryBox" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; font-size: 12px; margin-bottom: 10px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span style="color: var(--text-muted);">已同步工單筆數：</span>
+                <strong id="sbEventCountText">0 筆 (待同步)</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <span style="color: var(--text-muted);">解析工站架構：</span>
+                <strong id="sbFlowSummaryText">預設 5 工站 DAG</strong>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="color: var(--text-muted);">即時雲端 WIP：</span>
+                <span id="sbWipChips" style="text-align: right; font-weight: 500; color: #1e40af;">無</span>
+              </div>
+            </div>
+
+            <!-- 快捷操作：根據 WIP 套用 & 匯出 -->
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <button type="button" class="btn-secondary" style="font-size: 12px; margin: 0;" onclick="applyCloudWipToScenario()">
+                ⚡ 根據雲端 WIP 自動帶入初始 Ready WIP
+              </button>
+              <button type="button" class="btn-secondary" style="font-size: 12px; margin: 0;" onclick="exportSyncedCsv()">
+                📥 匯出當前數據為 CSV
+              </button>
+            </div>
+
+            <!-- 相關系統聯動快速跳轉入口 -->
+            <div class="quick-links">
+              <span style="font-size: 12px; font-weight: 600; color: #475569; width: 100%; margin-bottom: 4px;">
+                🔗 相關聯動系統快速入口 (自動攜帶組別參數)：
+              </span>
+              <a id="linkQrCode" href="https://lctsaio365.github.io/ie_chair_test/qrcode.html?group=G01" target="_blank" class="quick-link-btn">
+                🖨️ 工站 QR Code 產生器 ↗
+              </a>
+              <a id="linkTimer" href="https://lctsaio365.github.io/ie_chair_test/timer.html?group=G01&station=ST01" target="_blank" class="quick-link-btn">
+                ⏱️ 工站同步計時器 ↗
+              </a>
+              <a id="linkScreen" href="https://lctsaio365.github.io/ie_chair_test/%E5%B7%A5%E6%A6%82%E8%9E%A2%E5%B9%95.html?group=G01" target="_blank" class="quick-link-btn">
+                🖥️ 組裝線即時監控中心 ↗
+              </a>
+              <a id="linkDashboard" href="https://lctsaio365.github.io/ie_chair_test/dashboard.html" target="_blank" class="quick-link-btn">
+                📊 生產儀表板 ↗
+              </a>
+            </div>
+
+            <!-- 進階 Supabase 設定 (預設收合) -->
+            <details style="margin-top: 12px; font-size: 12px;">
+              <summary style="cursor: pointer; color: var(--primary); font-weight: 500;">
+                ⚙️ 進階：Supabase 連線設定與金鑰
+              </summary>
+              <div style="margin-top: 8px; background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid var(--border);">
+                <label style="font-size: 12px;">Supabase URL：</label>
+                <input type="text" id="sbUrlInput" value="https://iomsrjkrvuzrsluirtdj.supabase.co" style="font-size: 12px; margin-bottom: 8px;" />
+                
+                <label style="font-size: 12px;">Supabase Key：</label>
+                <input type="text" id="sbKeyInput" value="sb_publishable_QmLToEOs4wEEPBnASz0dxg_o0hhtgLO" style="font-size: 12px; margin-bottom: 8px;" />
+                
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" class="btn-secondary" style="margin: 0;" onclick="testSupabaseConnection()">
+                    🔌 測試連線
+                  </button>
+                  <button type="button" class="btn-secondary" style="margin: 0;" onclick="resetSupabaseConfig()">
+                    ↩️ 還原預設 Key 與 URL
+                  </button>
+                </div>
+              </div>
+            </details>
+          </div>
+        </div>
+
+        <!-- 區塊 B：本地檔案上傳 / 內建示範 (保留原始方式) -->
+        <div id="localSection" style="display: none;">
+          <label>生產加工時間 CSV：</label>
+          <input type="file" id="csvFile" accept=".csv" />
+          <div class="file-status-text" id="csvStatus"></div>
+          <div class="sample-buttons" style="display: flex; gap: 8px; margin-bottom: 12px;">
+            <button type="button" class="btn-secondary" onclick="loadSampleCSV('default')">示範：標準雙輪真實日誌</button>
+            <button type="button" class="btn-secondary" onclick="loadSampleCSV('sparse')">示範：極端5筆日誌(測守護)</button>
+          </div>
+
+          <label>製程網路 Flow JSON：</label>
+          <input type="file" id="flowFile" accept=".json" />
+          <div class="file-status-text" id="flowStatus"></div>
+        </div>
 
         <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);">
           <label>加工時間取樣模型 (Model)：</label>
@@ -481,18 +764,59 @@
       ST01: 3.2, ST02: 6.8, ST03: 10.5, ST04: 5.0, ST05: 8.5
     };
 
+    // Supabase 雲端資料庫設定與預設金鑰
+    const DEFAULT_SUPABASE_URL = "https://iomsrjkrvuzrsluirtdj.supabase.co";
+    const DEFAULT_SUPABASE_KEY = "sb_publishable_QmLToEOs4wEEPBnASz0dxg_o0hhtgLO";
+    let autoSyncTimer = null;
+    let currentDataSource = "supabase"; // "supabase" 或 "local"
+    let latestCloudEvents = [];
+    let latestCloudFlows = [];
+    let latestCloudWips = [];
+
     // 內建模擬真實歷史資料
-    let currentRawCSV = `round_id,station_id,product,duration_sec,status
-R01,ST01,P001,3.02,completed\nR01,ST01,P002,3.41,completed\nR01,ST01,P003,2.71,completed\nR01,ST01,P004,2.65,completed
-R01,ST02,P001,6.47,completed\nR01,ST02,P002,6.48,completed\nR01,ST02,P003,7.30,completed\nR01,ST02,P004,6.24,completed
-R01,ST03,P001,9.81,completed\nR01,ST03,P002,9.85,completed\nR01,ST03,P003,10.44,completed\nR01,ST03,P004,12.26,completed
-R01,ST04,P001,4.71,completed\nR01,ST04,P002,5.01,completed\nR01,ST04,P003,5.21,completed\nR01,ST04,P004,5.27,completed
-R01,ST05,P001,9.85,completed\nR01,ST05,P002,7.70,completed\nR01,ST05,P003,9.19,completed\nR01,ST05,P004,7.79,completed
-R02,ST01,P001,2.89,completed\nR02,ST01,P002,3.33,completed\nR02,ST01,P003,2.66,completed\nR02,ST01,P004,3.41,completed
-R02,ST02,P001,6.07,completed\nR02,ST02,P002,7.60,completed\nR02,ST02,P003,7.52,completed\nR02,ST02,P004,6.48,completed
-R02,ST03,P001,12.37,completed\nR02,ST03,P002,9.91,completed\nR02,ST03,P003,12.35,completed\nR02,ST03,P004,10.46,completed
-R02,ST04,P001,5.38,completed\nR02,ST04,P002,4.28,completed\nR02,ST04,P003,4.96,completed\nR02,ST04,P004,5.34,completed
-R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,completed\nR02,ST05,P004,8.14,completed`;
+    const DEFAULT_RAW_CSV = `round_id,station_id,product,duration_sec,status
+R01,ST01,P001,3.02,completed
+R01,ST01,P002,3.41,completed
+R01,ST01,P003,2.71,completed
+R01,ST01,P004,2.65,completed
+R01,ST02,P001,6.47,completed
+R01,ST02,P002,6.48,completed
+R01,ST02,P003,7.30,completed
+R01,ST02,P004,6.24,completed
+R01,ST03,P001,9.81,completed
+R01,ST03,P002,9.85,completed
+R01,ST03,P003,10.44,completed
+R01,ST03,P004,12.26,completed
+R01,ST04,P001,4.71,completed
+R01,ST04,P002,5.01,completed
+R01,ST04,P003,5.21,completed
+R01,ST04,P004,5.27,completed
+R01,ST05,P001,9.85,completed
+R01,ST05,P002,7.70,completed
+R01,ST05,P003,9.19,completed
+R01,ST05,P004,7.79,completed
+R02,ST01,P001,2.89,completed
+R02,ST01,P002,3.33,completed
+R02,ST01,P003,2.66,completed
+R02,ST01,P004,3.41,completed
+R02,ST02,P001,6.07,completed
+R02,ST02,P002,7.60,completed
+R02,ST02,P003,7.52,completed
+R02,ST02,P004,6.48,completed
+R02,ST03,P001,12.37,completed
+R02,ST03,P002,9.91,completed
+R02,ST03,P003,12.35,completed
+R02,ST03,P004,10.46,completed
+R02,ST04,P001,5.38,completed
+R02,ST04,P002,4.28,completed
+R02,ST04,P003,4.96,completed
+R02,ST04,P004,5.34,completed
+R02,ST05,P001,8.35,completed
+R02,ST05,P002,7.71,completed
+R02,ST05,P003,8.74,completed
+R02,ST05,P004,8.14,completed`;
+
+    let currentRawCSV = DEFAULT_RAW_CSV;
 
     let currentFlow = JSON.parse(JSON.stringify(DEFAULT_FLOW));
     let currentScenario = JSON.parse(JSON.stringify(DEFAULT_SCENARIO));
@@ -567,6 +891,442 @@ R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,c
       choice(arr) { return arr[Math.floor(this.nextFloat() * arr.length)]; }
     }
 
+
+    // 資料來源模式切換
+    function switchSourceTab(mode) {
+      currentDataSource = mode;
+      document.getElementById('tabSupabase').classList.toggle('active', mode === 'supabase');
+      document.getElementById('tabLocal').classList.toggle('active', mode === 'local');
+      document.getElementById('supabaseSection').style.display = mode === 'supabase' ? 'block' : 'none';
+      document.getElementById('localSection').style.display = mode === 'local' ? 'block' : 'none';
+
+      if (mode === 'local') {
+        if (autoSyncTimer) {
+          clearInterval(autoSyncTimer);
+          autoSyncTimer = null;
+          document.getElementById('autoSyncInterval').value = "0";
+        }
+        showToast("已切換為「本地檔案 / 內建示範」模式", "info");
+      } else {
+        showToast("已切換為「Supabase 雲端資料庫」模式", "info");
+        if (!latestCloudEvents || latestCloudEvents.length === 0) {
+          syncFromSupabase();
+        }
+      }
+    }
+
+    // 取得當前 Supabase 連線設定
+    function getSupabaseConfig() {
+      const urlEl = document.getElementById('sbUrlInput');
+      const keyEl = document.getElementById('sbKeyInput');
+      let url = (urlEl ? urlEl.value.trim() : "") || DEFAULT_SUPABASE_URL;
+      let key = (keyEl ? keyEl.value.trim() : "") || DEFAULT_SUPABASE_KEY;
+      url = url.replace(/\/+$/, '').replace(/\/rest\/v1\/?$/, '');
+      return {
+        url,
+        key,
+        headers: {
+          apikey: key,
+          Authorization: "Bearer " + key,
+          "Content-Type": "application/json"
+        }
+      };
+    }
+
+    // 更新狀態徽章
+    function updateDbStatusBadge(status, text) {
+      const badge = document.getElementById('dbStatusBadge');
+      if (!badge) return;
+      badge.className = `status-badge status-${status}`;
+      badge.innerHTML = `<span class="status-dot"></span> ${text}`;
+    }
+
+    // 更新相關網站快速跳轉連結
+    function updateQuickLinks(group) {
+      const grpParam = encodeURIComponent(group);
+      const qrcodeLink = document.getElementById('linkQrCode');
+      const timerLink = document.getElementById('linkTimer');
+      const screenLink = document.getElementById('linkScreen');
+      const dashLink = document.getElementById('linkDashboard');
+
+      if (qrcodeLink) qrcodeLink.href = `https://lctsaio365.github.io/ie_chair_test/qrcode.html?group=${grpParam}`;
+      if (timerLink) timerLink.href = `https://lctsaio365.github.io/ie_chair_test/timer.html?group=${grpParam}&station=ST01`;
+      if (screenLink) screenLink.href = `https://lctsaio365.github.io/ie_chair_test/%E5%B7%A5%E6%A6%82%E8%9E%A2%E5%B9%95.html?group=${grpParam}`;
+      if (dashLink) dashLink.href = `https://lctsaio365.github.io/ie_chair_test/dashboard.html`;
+    }
+
+    // 當選擇組別變更時
+    function onGroupChange() {
+      const group = document.getElementById('sbGroupSelect').value;
+      updateQuickLinks(group);
+      syncFromSupabase();
+    }
+
+    // 測試 Supabase 連線
+    async function testSupabaseConnection() {
+      const { url, headers } = getSupabaseConfig();
+      showToast("正在連線測試 Supabase...", "info", 1500);
+      try {
+        const res = await fetch(`${url}/rest/v1/event?select=id&limit=1`, { headers });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.message || `HTTP ${res.status}`);
+        }
+        showToast("✅ Supabase 連線成功！資料庫正常可用。", "success");
+        updateDbStatusBadge("online", "連線正常");
+      } catch (err) {
+        showToast("❌ 連線失敗：" + err.message + "，請檢查 URL 與 Key。", "error", 5000);
+        updateDbStatusBadge("error", "連線失敗");
+      }
+    }
+
+    // 還原預設 Supabase 設定
+    function resetSupabaseConfig() {
+      document.getElementById('sbUrlInput').value = DEFAULT_SUPABASE_URL;
+      document.getElementById('sbKeyInput').value = DEFAULT_SUPABASE_KEY;
+      showToast("已還原預設 Supabase URL 與金鑰", "info");
+    }
+
+    // 探索雲端現有組別清單
+    async function fetchSupabaseGroups() {
+      const { url, headers } = getSupabaseConfig();
+      showToast("正在搜尋 Supabase 現有組別...", "info", 1500);
+      try {
+        const [evRes, flowRes, wipRes] = await Promise.all([
+          fetch(`${url}/rest/v1/event?select=group_id`, { headers }),
+          fetch(`${url}/rest/v1/station_flow?select=group_id`, { headers }),
+          fetch(`${url}/rest/v1/station_wip?select=group_id`, { headers })
+        ]);
+        const groups = new Set();
+        const addGroups = (arr) => {
+          if (Array.isArray(arr)) {
+            arr.forEach(r => {
+              const g = (r.group_id || "").trim();
+              if (g && !g.startsWith("SYSTEM")) groups.add(g);
+            });
+          }
+        };
+        if (evRes.ok) addGroups(await evRes.json());
+        if (flowRes.ok) addGroups(await flowRes.json());
+        if (wipRes.ok) addGroups(await wipRes.json());
+
+        for (let i = 1; i <= 12; i++) {
+          groups.add(`G${String(i).padStart(2, '0')}`);
+        }
+
+        const sortedGroups = Array.from(groups).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+        const select = document.getElementById('sbGroupSelect');
+        const currentVal = select.value;
+        select.innerHTML = '';
+        
+        sortedGroups.forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g;
+          opt.textContent = `${g} 組`;
+          if (g === currentVal) opt.selected = true;
+          select.appendChild(opt);
+        });
+
+        const allOpt = document.createElement('option');
+        allOpt.value = 'ALL';
+        allOpt.textContent = '全產線 (ALL)';
+        if (currentVal === 'ALL') allOpt.selected = true;
+        select.appendChild(allOpt);
+
+        showToast(`已成功獲取 ${sortedGroups.length} 個雲端組別！`, "success");
+      } catch (err) {
+        showToast("獲取組別清單失敗：" + err.message, "warning");
+      }
+    }
+
+    // 從 station_flow 記錄動態建構 DAG
+    function buildDagFromFlows(flowRows) {
+      if (!flowRows || flowRows.length === 0) return null;
+      const allStations = new Set();
+      flowRows.forEach(f => {
+        const s = (f.station_id || "").trim();
+        const n = (f.next_station_id || "").trim();
+        if (s && !s.startsWith("SYSTEM") && !s.endsWith("_LIMIT")) allStations.add(s);
+        if (n && !n.startsWith("SYSTEM") && !n.endsWith("_LIMIT") && n !== "END") allStations.add(n);
+      });
+      if (allStations.size === 0) return null;
+
+      const stations = {};
+      Array.from(allStations).sort().forEach(s => {
+        stations[s] = { inputs: [] };
+      });
+
+      flowRows.forEach(f => {
+        const s = (f.station_id || "").trim();
+        const n = (f.next_station_id || "").trim();
+        if (s && n && n !== "END" && stations[n] && stations[s]) {
+          if (!stations[n].inputs.includes(s)) {
+            stations[n].inputs.push(s);
+          }
+        }
+      });
+
+      const hasOutgoing = new Set();
+      flowRows.forEach(f => {
+        const s = (f.station_id || "").trim();
+        const n = (f.next_station_id || "").trim();
+        if (s && n && n !== "END") {
+          hasOutgoing.add(s);
+        }
+      });
+
+      const candidates = Array.from(allStations).filter(s => !hasOutgoing.has(s));
+      const output_station = candidates.length > 0 ? candidates[0] : Array.from(allStations).sort().pop();
+      return { stations, output_station };
+    }
+
+    // 判斷產品是否為測試產品編號
+    function isTestProductId(pid) {
+      return typeof pid === "string" && /^TEST\d*-/i.test(pid.trim());
+    }
+
+    // 解析測試輪次 (1, 2, 3...)
+    function getTestRoundFromProductId(pid) {
+      if (!pid) return null;
+      const m = pid.match(/^TEST(\d*)-/i);
+      if (!m) return null;
+      return m[1] ? parseInt(m[1], 10) : 1;
+    }
+
+    // 渲染在製品 WIP 標籤
+    function renderWipChips(wips) {
+      const container = document.getElementById('sbWipChips');
+      if (!container) return;
+      if (!wips || wips.length === 0) {
+        container.innerHTML = '<span style="color:#94a3b8;">無在製品</span>';
+        return;
+      }
+      container.innerHTML = wips.map(w => {
+        const inW = w.input_wip || 0;
+        const outW = w.output_wip || 0;
+        return `<span class="live-chip" title="待料: ${inW}, 出庫: ${outW}"><strong>${w.station_id}</strong>: 待料${inW}/出庫${outW}</span>`;
+      }).join('');
+    }
+
+    // 核心：從 Supabase 同步最新數據
+    async function syncFromSupabase(isSilent = false) {
+      const { url, headers } = getSupabaseConfig();
+      const group = document.getElementById('sbGroupSelect').value;
+      const filterType = document.getElementById('sbFilterSelect').value;
+      const syncEvents = document.getElementById('syncEventsCb').checked;
+      const syncFlow = document.getElementById('syncFlowCb').checked;
+      const syncWip = document.getElementById('syncWipCb').checked;
+
+      updateQuickLinks(group);
+      updateDbStatusBadge("syncing", "同步中...");
+
+      try {
+        // 1. 同步製程網路 Flow (station_flow)
+        if (syncFlow) {
+          let flowUrl = `${url}/rest/v1/station_flow?order=station_id.asc`;
+          if (group !== "ALL") {
+            flowUrl += `&group_id=eq.${encodeURIComponent(group)}`;
+          }
+          const flowRes = await fetch(flowUrl, { headers });
+          if (flowRes.ok) {
+            let flows = await flowRes.json();
+            if (flows.length === 0 && group.startsWith("G") && !group.includes("-")) {
+              const fallbackRes = await fetch(`${url}/rest/v1/station_flow?group_id=ilike.${encodeURIComponent(group)}%&order=station_id.asc`, { headers });
+              if (fallbackRes.ok) {
+                const fbFlows = await fallbackRes.json();
+                if (fbFlows.length > 0) flows = fbFlows;
+              }
+            }
+            latestCloudFlows = flows;
+
+            if (flows.length > 0) {
+              const dag = buildDagFromFlows(flows);
+              if (dag && Object.keys(dag.stations).length > 0) {
+                currentFlow = dag;
+                renderWipUI();
+                const stKeys = Object.keys(dag.stations).sort();
+                document.getElementById('sbFlowSummaryText').innerText = `${stKeys.join(', ')} (終點: ${dag.output_station})`;
+              }
+            } else {
+              document.getElementById('sbFlowSummaryText').innerText = `雲端無特定 Flow，維持現有設定`;
+            }
+          }
+        }
+
+        // 2. 同步即時在製品 (station_wip)
+        if (syncWip) {
+          let wipUrl = `${url}/rest/v1/station_wip?select=*`;
+          if (group !== "ALL") {
+            wipUrl += `&group_id=eq.${encodeURIComponent(group)}`;
+          }
+          const wipRes = await fetch(wipUrl, { headers });
+          if (wipRes.ok) {
+            let wips = await wipRes.json();
+            if (wips.length === 0 && group.startsWith("G") && !group.includes("-")) {
+              const fbWip = await fetch(`${url}/rest/v1/station_wip?group_id=ilike.${encodeURIComponent(group)}%`, { headers });
+              if (fbWip.ok) {
+                const fbWips = await fbWip.json();
+                if (fbWips.length > 0) wips = fbWips;
+              }
+            }
+            latestCloudWips = wips.filter(w => {
+              const sid = (w.station_id || "");
+              return sid && !sid.includes("MODE") && !sid.endsWith("_LIMIT");
+            });
+            renderWipChips(latestCloudWips);
+          }
+        }
+
+        // 3. 同步工時數據 (event)
+        if (syncEvents) {
+          let evUrl = `${url}/rest/v1/event?select=*&order=start_time.asc`;
+          if (group !== "ALL") {
+            evUrl += `&group_id=eq.${encodeURIComponent(group)}`;
+          }
+          const evRes = await fetch(evUrl, { headers });
+          if (!evRes.ok) {
+            throw new Error(`讀取 event 失敗 (${evRes.status})`);
+          }
+          let events = await evRes.json();
+
+          // 數據過濾
+          if (filterType === "OFFICIAL") {
+            events = events.filter(r => !isTestProductId(r.product_id));
+          } else if (filterType === "TEST") {
+            events = events.filter(r => isTestProductId(r.product_id));
+          } else if (filterType === "TEST1") {
+            events = events.filter(r => getTestRoundFromProductId(r.product_id) === 1);
+          } else if (filterType === "TEST2") {
+            events = events.filter(r => getTestRoundFromProductId(r.product_id) === 2);
+          } else if (filterType === "TEST3") {
+            events = events.filter(r => getTestRoundFromProductId(r.product_id) === 3);
+          }
+
+          // 篩選出有效 duration_sec
+          const validEvents = events.filter(r => {
+            const d = parseFloat(r.duration_sec);
+            return !isNaN(d) && d > 0 && r.station_id;
+          });
+
+          latestCloudEvents = validEvents;
+
+          if (validEvents.length > 0) {
+            let csv = "round_id,station_id,product,duration_sec,status\n";
+            validEvents.forEach(e => {
+              csv += `${e.group_id || 'R01'},${e.station_id},${e.product_id || 'P001'},${e.duration_sec},${e.status || 'completed'}\n`;
+            });
+            currentRawCSV = csv;
+
+            const totalDur = validEvents.reduce((acc, e) => acc + parseFloat(e.duration_sec), 0);
+            const avgDur = totalDur / validEvents.length;
+            document.getElementById('sbEventCountText').innerText = `${validEvents.length} 筆 (平均 ${avgDur.toFixed(2)}s)`;
+
+            // 若 Flow 中缺少此事件工站，自動擴充 Flow
+            const eventStations = Array.from(new Set(validEvents.map(e => e.station_id)));
+            let flowModified = false;
+            eventStations.forEach(s => {
+              if (!currentFlow.stations[s]) {
+                currentFlow.stations[s] = { inputs: [] };
+                flowModified = true;
+              }
+            });
+            if (flowModified) {
+              renderWipUI();
+            }
+          } else {
+            document.getElementById('sbEventCountText').innerText = `0 筆 (將以守護模式/SOP保底)`;
+            if (!isSilent) {
+              showToast(`【${group}】目前無工時數據，已自動啟用守護模式保底進行模擬。`, "info");
+            }
+          }
+        }
+
+        const now = new Date().toLocaleTimeString();
+        document.getElementById('lastSyncTimeText').innerText = `最後同步：${now}`;
+        updateDbStatusBadge("online", "連線正常");
+
+        // 觸發模擬計算
+        runSimulation(isSilent);
+
+        if (!isSilent) {
+          showToast(`已成功同步【${group}】數據 (${latestCloudEvents.length} 筆工時)！`, "success");
+        }
+      } catch (err) {
+        updateDbStatusBadge("error", "同步異常");
+        if (!isSilent) {
+          showToast("Supabase 同步失敗：" + err.message, "error", 5000);
+        }
+      }
+    }
+
+    // 自動同步輪詢開關
+    function toggleAutoSync() {
+      const interval = parseInt(document.getElementById('autoSyncInterval').value, 10);
+      if (autoSyncTimer) {
+        clearInterval(autoSyncTimer);
+        autoSyncTimer = null;
+      }
+      if (interval > 0) {
+        autoSyncTimer = setInterval(() => {
+          syncFromSupabase(true);
+        }, interval);
+        showToast(`已啟用自動同步 (每 ${interval / 1000} 秒更新)`, "info");
+      } else {
+        showToast("已停止自動同步", "info");
+      }
+    }
+
+    // 依據雲端 WIP 自動勾選初始 Ready WIP
+    function applyCloudWipToScenario() {
+      if (!latestCloudWips || latestCloudWips.length === 0) {
+        showToast("目前無有效雲端 WIP 數據可套用。", "warning");
+        return;
+      }
+
+      // 清空既有勾選
+      document.querySelectorAll('#wipStationContainer input[type="checkbox"]').forEach(cb => {
+        cb.checked = false;
+        if (cb.parentElement) cb.parentElement.classList.remove('checked');
+      });
+
+      const qty = parseInt(document.getElementById('targetQty').value) || 6;
+      let appliedCount = 0;
+
+      latestCloudWips.forEach(w => {
+        const stId = (w.station_id || "").trim();
+        const count = Math.min(qty, Math.max(w.input_wip || 0, w.output_wip || 0));
+        if (count > 0) {
+          for (let i = 1; i <= count; i++) {
+            const pId = `P${String(i).padStart(3, '0')}`;
+            const cb = document.querySelector(`input[name="ready_${stId}"][value="${pId}"]`);
+            if (cb) {
+              cb.checked = true;
+              if (cb.parentElement) cb.parentElement.classList.add('checked');
+              appliedCount++;
+            }
+          }
+        }
+      });
+
+      runSimulation(false);
+      showToast(`已依據雲端 WIP 預先套用 ${appliedCount} 個工站成品！`, "success");
+    }
+
+    // 匯出當前同步之 CSV
+    function exportSyncedCsv() {
+      if (!currentRawCSV || currentRawCSV.trim().length === 0) {
+        showToast("目前無有效數據可供匯出。", "warning");
+        return;
+      }
+      const group = document.getElementById('sbGroupSelect').value;
+      const blob = new Blob([currentRawCSV], { type: 'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `production_events_${group}_${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+      showToast(`已成功匯出【${group}】加工時間 CSV 檔案！`, "success");
+    }
+
     // 快速載入示範 CSV
     function loadSampleCSV(type) {
       if (type === 'sparse') {
@@ -576,8 +1336,13 @@ R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,c
         st.innerText = '✅ 已載入「極端當日範例」(僅5筆，缺ST03/ST05)';
         showToast("已載入極端當日範例 (僅5筆，且缺ST03/ST05)！", "info");
       } else {
-        location.reload();
+        currentRawCSV = DEFAULT_RAW_CSV;
+        const st = document.getElementById('csvStatus');
+        st.style.display = 'block';
+        st.innerText = '✅ 已載入「標準雙輪真實日誌」(20筆完整工站)';
+        showToast("已載入標準雙輪示範資料！", "info");
       }
+      runSimulation(false);
     }
 
     // 檔案上傳事件 (使用 Toast 取代原生 alert)
@@ -1015,8 +1780,17 @@ R02,ST05,P001,8.35,completed\nR02,ST05,P002,7.71,completed\nR02,ST05,P003,8.74,c
       });
     }
 
-    // 頁面初次載入時自動靜默運算呈現預設圖表 (isSilent = true，不彈出 Toast 提示)
-    window.onload = () => { renderWipUI(); runSimulation(true); };
+    // 頁面初次載入時自動靜默運算呈現預設圖表，並自動探索與同步 Supabase 雲端數據
+    window.onload = async () => {
+      renderWipUI();
+      runSimulation(true);
+      try {
+        await fetchSupabaseGroups();
+        await syncFromSupabase(true);
+      } catch (e) {
+        console.warn("初次自動同步雲端數據略過：", e);
+      }
+    };
   </script>
 </body>
 </html>
