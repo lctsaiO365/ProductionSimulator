@@ -535,29 +535,6 @@
                 📊 生產儀表板 ↗
               </a>
             </div>
-
-            <!-- 進階 Supabase 設定 (預設收合) -->
-            <details style="margin-top: 12px; font-size: 12px;">
-              <summary style="cursor: pointer; color: var(--primary); font-weight: 500;">
-                ⚙️ 進階：Supabase 連線設定與金鑰
-              </summary>
-              <div style="margin-top: 8px; background: #ffffff; padding: 10px; border-radius: 6px; border: 1px solid var(--border);">
-                <label style="font-size: 12px;">Supabase URL：</label>
-                <input type="text" id="sbUrlInput" value="https://iomsrjkrvuzrsluirtdj.supabase.co" style="font-size: 12px; margin-bottom: 8px;" />
-                
-                <label style="font-size: 12px;">Supabase Key：</label>
-                <input type="text" id="sbKeyInput" value="sb_publishable_QmLToEOs4wEEPBnASz0dxg_o0hhtgLO" style="font-size: 12px; margin-bottom: 8px;" />
-                
-                <div style="display: flex; gap: 8px;">
-                  <button type="button" class="btn-secondary" style="margin: 0;" onclick="testSupabaseConnection()">
-                    🔌 測試連線
-                  </button>
-                  <button type="button" class="btn-secondary" style="margin: 0;" onclick="resetSupabaseConfig()">
-                    ↩️ 還原預設 Key 與 URL
-                  </button>
-                </div>
-              </div>
-            </details>
           </div>
         </div>
 
@@ -982,8 +959,10 @@ R02,ST05,P004,8.14,completed`;
 
     // 還原預設 Supabase 設定
     function resetSupabaseConfig() {
-      document.getElementById('sbUrlInput').value = DEFAULT_SUPABASE_URL;
-      document.getElementById('sbKeyInput').value = DEFAULT_SUPABASE_KEY;
+      const urlEl = document.getElementById('sbUrlInput');
+      const keyEl = document.getElementById('sbKeyInput');
+      if (urlEl) urlEl.value = DEFAULT_SUPABASE_URL;
+      if (keyEl) keyEl.value = DEFAULT_SUPABASE_KEY;
       showToast("已還原預設 Supabase URL 與金鑰", "info");
     }
 
